@@ -1,4 +1,4 @@
-### **AirForge**
+### **Updated README: AirForge**
 
 ---
 
@@ -20,7 +20,7 @@
 
 3. **Wordlist Selection**:
    - Offers three options for wordlist selection:
-     1. Use the default `rockyou.txt`.
+     1. Choose from all saved wordlists in the system (e.g., `/usr/share/wordlists/`).
      2. Generate a custom wordlist based on user-provided keywords.
      3. Download a wordlist from an online source.
 
@@ -29,6 +29,9 @@
 
 5. **Custom Wordlist Generation**:
    - Allows users to create a tailored wordlist for targeted attacks.
+
+6. **BSSID Extraction**:
+   - Automatically extracts the BSSID from an existing `.cap` file if the user provides one, eliminating the need to manually input the BSSID.
 
 ---
 
@@ -40,7 +43,7 @@
   - `airodump-ng`
   - `aireplay-ng`
   - `curl` (for downloading wordlists)
-- `rockyou.txt` wordlist (can be installed via `wordlists` package).
+- Wordlists stored in `/usr/share/wordlists/` (e.g., `rockyou.txt`).
 
 ---
 
@@ -57,7 +60,7 @@
    pip install -r requirements.txt
    ```
 
-3. Ensure `rockyou.txt` is available:
+3. Ensure wordlists are available:
    ```bash
    sudo apt install wordlists
    gunzip /usr/share/wordlists/rockyou.txt.gz
@@ -73,10 +76,11 @@
    ```
 
 2. Follow the prompts:
-   - **Network Scanning**: Select a target BSSID and channel.
+   - **Existing `.cap` File**: If you already have a `.cap` file, provide its path, and the tool will extract the BSSID automatically.
+   - **Network Scanning**: If no `.cap` file is provided, the tool scans for networks and allows you to select a target BSSID and channel.
    - **Handshake Capture**: The tool captures the handshake and saves it to a `.cap` file.
    - **Wordlist Selection**: Choose one of the following options:
-     1. Use `rockyou.txt`.
+     1. Select from all saved wordlists in the system.
      2. Generate a custom wordlist.
      3. Download a wordlist from an online source.
    - **Automatic Cracking**: The tool runs `aircrack-ng` with the selected wordlist and captured handshake.
@@ -90,21 +94,37 @@
    sudo python3 Main.py
    ```
 
-2. **Scan for Networks**:
+2. **Use an Existing `.cap` File**:
+   - The tool asks:
+     ```plaintext
+     [?] Do you want to use an existing .cap file? (y/n): y
+     [?] Enter the full path to the .cap file: /root/Desktop/handshake-01.cap
+     [+] Using existing .cap file: /root/Desktop/handshake-01.cap
+     [*] Extracting BSSID from the .cap file...
+     [+] Extracted BSSID: 50:91:E3:BC:D8:8C
+     ```
+
+3. **Scan for Networks** (if no `.cap` file is provided):
    - The tool uses `airodump-ng` to scan for networks.
    - Press `Ctrl+C` when you see the desired BSSID and channel.
 
-3. **Capture Handshake**:
+4. **Capture Handshake**:
    - The tool captures the handshake and saves it to `/root/Desktop/handshake-01.cap`.
 
-4. **Select Wordlist**:
+5. **Select Wordlist**:
    - Choose one of the wordlist options:
-     - Use `rockyou.txt`.
+     - Select from saved wordlists (e.g., `rockyou.txt`, `fasttrack.txt`).
      - Generate a custom wordlist.
      - Download an online wordlist.
 
-5. **Crack the Handshake**:
-   - The tool runs `aircrack-ng` automatically with the selected wordlist.
+6. **Crack the Handshake**:
+   - The tool runs `aircrack-ng` automatically with the selected wordlist:
+     ```plaintext
+     [*] Starting aircrack-ng to crack the handshake...
+     Opening /root/Desktop/handshake-01.cap
+     Read 100 packets...
+     1 handshake detected for BSSID: 50:91:E3:BC:D8:8C
+     ```
 
 ---
 
@@ -118,7 +138,7 @@
 [*] Starting handshake capture...
 [+] Handshake file saved to: /root/Desktop/handshake-01.cap
 [*] Choosing a wordlist...
-[1] Use rockyou.txt
+[1] Select from saved wordlists
 [2] Generate a custom wordlist
 [3] Download an online wordlist
 [?] Choose wordlist option: 1
@@ -139,6 +159,9 @@ This tool is intended for educational purposes and authorized penetration testin
 #### **License**
 
 This project is licensed under the MIT License. See the `LICENSE` file for details.
+
+---
+
 #### **Based On**
 
-This project incorporates code from [WordlistGenerator] (https://github.com/lamaAlshuhail/WordlistGenerator), originally developed by @lamaAlshuhail
+This project incorporates code from [WordlistGenerator](https://github.com/lamaAlshuhail/WordlistGenerator), originally developed by @lamaAlshuhail.

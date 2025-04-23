@@ -139,3 +139,6 @@ This tool is intended for educational purposes and authorized penetration testin
 #### **License**
 
 This project is licensed under the MIT License. See the `LICENSE` file for details.
+#### **Based On**
+
+This project incorporates code from [WordlistGenerator] (https://github.com/lamaAlshuhail/WordlistGenerator), originally developed by @lamaAlshuhail

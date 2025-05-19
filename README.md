@@ -1,4 +1,4 @@
-### **Updated README: AirForge**
+### README: AirForge**
 
 ---
 
